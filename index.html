@@ -48,25 +48,42 @@
             justify-items: center;
             align-items: start;
         }
+        /* Card link - makes the whole card clickable */
+        .cam-link {
+            display: block;
+            text-decoration: none;
+            color: inherit;
+            width: 100%;
+            max-width: 600px;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .cam-link:hover {
+            transform: translateY(-4px);
+        }
         .cam-card {
             background: #ffffff;
             border-radius: 1rem;
             overflow: hidden;
             box-shadow: 0 8px 20px rgba(0,0,0,0.08);
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-            width: 100%;
-            max-width: 600px;
+            transition: box-shadow 0.2s ease;
         }
-        .cam-card:hover {
-            transform: translateY(-4px);
+        .cam-link:hover .cam-card {
             box-shadow: 0 16px 30px rgba(0,0,0,0.12);
         }
         .cam-iframe {
+            position: relative;
             width: 100%;
             aspect-ratio: 16 / 9;
-            border: none;
-            display: block;
             background: #000;
+            overflow: hidden;
+        }
+        .cam-iframe iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
         }
         .cam-info {
             padding: 0.8rem 1rem 1rem;
@@ -141,7 +158,6 @@
     const WM_SLUG = 'T2CSW';   // Your campaign slug
     const API_URL = `https://chaturbate.com/api/public/affiliates/onlinerooms/?wm=${WM_SLUG}&client_ip=request_ip&format=json&limit=6&gender=f&hd=true`;
 
-    // ========= DOM elements =========
     const gridContainer = document.getElementById('camGrid');
 
     async function fetchRooms() {
@@ -158,6 +174,17 @@
         }
     }
 
+    // Helper to make the iframe embed responsive
+    function makeIframeResponsive(iframeHtml) {
+        // Wrap in a container and force the iframe to fill it
+        // We'll just return the raw iframe, but our CSS will handle absolute positioning
+        // We need to strip any inline width/height and add classes?
+        // Simpler: we'll use a container div and inject the iframe inside, then style it.
+        // But we already have .cam-iframe container. We'll insert the iframe there.
+        // So we just need to return the iframe HTML without extra wrapper.
+        return iframeHtml;
+    }
+
     function renderRooms(rooms) {
         if (!rooms.length) {
             gridContainer.innerHTML = '<div class="error">No live rooms available at the moment. Please refresh later.</div>';
@@ -166,25 +193,34 @@
 
         let gridHTML = '';
         for (const room of rooms) {
+            // Use the provided iframe embed (already contains affiliate code)
             let iframeHtml = room.iframe_embed || '';
+            // Fallback if no embed (shouldn't happen, but safe)
             if (!iframeHtml && room.chat_room_url) {
-                iframeHtml = `<iframe src="${room.chat_room_url}&embed=1&disable_sound=1" width="100%" height="100%" frameborder="0" scrolling="no" allow="autoplay; fullscreen"></iframe>`;
+                iframeHtml = `<iframe src="${room.chat_room_url}&embed=1&disable_sound=1" frameborder="0" scrolling="no" allow="autoplay; fullscreen"></iframe>`;
             }
+
+            // Remove any width/height attributes from iframe to make it responsive
+            iframeHtml = iframeHtml.replace(/width="\d+"/i, '').replace(/height="\d+"/i, '');
 
             const viewers = room.num_users ? `${room.num_users.toLocaleString()} viewers` : '';
             const subject = room.room_subject || 'Live now';
+            // Use the affiliate room URL for the clickable link
+            const roomUrl = room.chat_room_url || room.chat_room_url_revshare || '#';
 
             gridHTML += `
-                <div class="cam-card">
-                    <div class="cam-iframe">
-                        ${iframeHtml}
+                <a href="${escapeHtml(roomUrl)}" target="_blank" rel="noopener noreferrer" class="cam-link">
+                    <div class="cam-card">
+                        <div class="cam-iframe">
+                            ${iframeHtml}
+                        </div>
+                        <div class="cam-info">
+                            <span class="username">${escapeHtml(room.username)}</span>
+                            ${viewers ? `<span class="viewers">👁️ ${viewers}</span>` : ''}
+                            <div class="room-subject" title="${escapeHtml(subject)}">${escapeHtml(subject)}</div>
+                        </div>
                     </div>
-                    <div class="cam-info">
-                        <span class="username">${escapeHtml(room.username)}</span>
-                        ${viewers ? `<span class="viewers">👁️ ${viewers}</span>` : ''}
-                        <div class="room-subject" title="${escapeHtml(subject)}">${escapeHtml(subject)}</div>
-                    </div>
-                </div>
+                </a>
             `;
         }
         gridContainer.innerHTML = gridHTML;
